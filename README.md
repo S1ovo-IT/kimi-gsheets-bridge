@@ -1,8 +1,9 @@
 # Kimi Sheets Bridge
 
 Бесплатный HTTPS-мост к Google Sheets через **Google Apps Script Web App**.
-Чтение и запись ячеек, листы, создание таблиц, оформление — JSON-запросами с токеном.
-**Не нужны** Google Cloud Console, OAuth-клиент, сервисный аккаунт и биллинг.
+Чтение и запись ячеек, листы, создание таблиц, оформление, графики —
+JSON-запросами с токеном. **Не нужны** Google Cloud Console, OAuth-клиент,
+сервисный аккаунт и биллинг.
 
 ## Как развернуть (5 минут)
 
@@ -31,6 +32,8 @@
 | Новый лист | `POST {token, id, action:"createSheet", name}` |
 | Новая таблица | `POST {token, action:"createSpreadsheet", title}` |
 | Оформление | `POST {token, id, action:"format", sheet?, formats, widths, frozenRows, frozenColumns}` |
+| Графики | `POST {token, id, action:"chart", sheet?, charts}` |
+| Удалить графики | `POST {token, id, action:"clearCharts", sheet?}` |
 
 `sheet` необязателен — по умолчанию первый лист. Ответ всегда JSON,
 ошибки — `{"error": "..."}`.
@@ -41,6 +44,7 @@
 {
   "formats": [
     {"range": "A1:Y1", "bold": true, "background": "#263238", "color": "#ffffff"},
+    {"range": "A4:E14", "border": true},
     {"range": "B2:Y10", "numberFormat": "#,##0"}
   ],
   "widths": [{"column": 1, "width": 330}],
@@ -49,8 +53,25 @@
 ```
 
 Поля `formats[]`: `range`, `bold`, `background`, `color`, `numberFormat`,
-`fontSize`, `horizontalAlignment`, `wrap`. Округление делается через
+`fontSize`, `horizontalAlignment`, `wrap`, `border`. Округление делается через
 `numberFormat` (`#,##0` — целые рубли), значения остаются точными.
+
+### chart
+
+```json
+{
+  "charts": [
+    {"title": "Прибыль по месяцам", "type": "LINE",
+     "ranges": ["A100:D124"], "headers": 1, "row": 56, "col": 1,
+     "width": 760, "height": 380}
+  ]
+}
+```
+
+Типы: `LINE`, `COLUMN`, `AREA`, `BAR`. Рабочий рецепт для нескольких серий:
+собрать служебную непрерывную таблицу «категория | серия1 | серия2…»
+(можно формулами-ссылками) и строить график по ней с `headers: 1`.
+Несмежные диапазоны + `transpose` дают неверные серии.
 
 ## Python-клиент
 
@@ -70,7 +91,7 @@ python gsheets.py create-spreadsheet "Название таблицы"
 {"url": "https://script.google.com/macros/s/.../exec", "token": "..."}
 ```
 
-Для `format` и других действий удобно импортировать модуль:
+Для `format`/`chart` и других действий удобно импортировать модуль:
 `gsheets._post({"id": ..., "action": "format", ...})`.
 
 ## Особенности

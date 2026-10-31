@@ -9,6 +9,8 @@
  * POST {token, action:"createSpreadsheet", title}
  * POST {token, id, action:"append", sheet, values:[[...]]}
  * POST {token, id, action:"format", sheet, formats, widths, frozenRows, frozenColumns}
+ * POST {token, id, action:"chart", sheet, charts}
+ * POST {token, id, action:"clearCharts", sheet}
  */
 const TOKEN = 'REPLACE_WITH_YOUR_OWN_RANDOM_TOKEN';
 
@@ -67,11 +69,38 @@ function doPost(e) {
         if (f.fontSize) r.setFontSize(f.fontSize);
         if (f.horizontalAlignment) r.setHorizontalAlignment(f.horizontalAlignment);
         if (f.wrap !== undefined) r.setWrap(f.wrap);
+        if (f.border) r.setBorder(true, true, true, true, true, true);
       });
       (body.widths || []).forEach(w => sh.setColumnWidth(w.column, w.width));
       if (body.frozenRows !== undefined) sh.setFrozenRows(body.frozenRows);
       if (body.frozenColumns !== undefined) sh.setFrozenColumns(body.frozenColumns);
       return ok({ formatted: true, sheet: sh.getName() });
+    }
+    if (body.action === 'clearCharts') {
+      const sh = body.sheet ? ss.getSheetByName(body.sheet) : ss.getSheets()[0];
+      if (!sh) return ok({ error: 'sheet not found: ' + body.sheet });
+      sh.getCharts().forEach(ch => sh.removeChart(ch));
+      return ok({ cleared: true, sheet: sh.getName() });
+    }
+    if (body.action === 'chart') {
+      const sh = body.sheet ? ss.getSheetByName(body.sheet) : ss.getSheets()[0];
+      if (!sh) return ok({ error: 'sheet not found: ' + body.sheet });
+      const types = { LINE: Charts.ChartType.LINE, COLUMN: Charts.ChartType.COLUMN,
+                      AREA: Charts.ChartType.AREA, BAR: Charts.ChartType.BAR };
+      (body.charts || []).forEach(c => {
+        const b = sh.newChart()
+          .setChartType(types[c.type] || Charts.ChartType.LINE)
+          .setPosition(c.row || 1, c.col || 1, 0, 0)
+          .setOption('title', c.title || '')
+          .setOption('width', c.width || 760)
+          .setOption('height', c.height || 380)
+          .setOption('legend', { position: 'bottom' });
+        (c.ranges || []).forEach(rg => b.addRange(sh.getRange(rg)));
+        if (c.transpose) b.setTransposeRowsAndColumns(true);
+        if (c.headers) b.setNumHeaders(c.headers);
+        sh.insertChart(b.build());
+      });
+      return ok({ charted: true, sheet: sh.getName() });
     }
     const sh = body.sheet ? ss.getSheetByName(body.sheet) : ss.getSheets()[0];
     if (!sh) return ok({ error: 'sheet not found: ' + body.sheet });
