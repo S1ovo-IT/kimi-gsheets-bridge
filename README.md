@@ -1,7 +1,7 @@
 # Kimi Sheets Bridge
 
 Бесплатный HTTPS-мост к Google Sheets через **Google Apps Script Web App**.
-Чтение и запись ячеек, листы, создание таблиц — JSON-запросами с токеном.
+Чтение и запись ячеек, листы, создание таблиц, оформление — JSON-запросами с токеном.
 **Не нужны** Google Cloud Console, OAuth-клиент, сервисный аккаунт и биллинг.
 
 ## Как развернуть (5 минут)
@@ -30,9 +30,27 @@
 | Добавить строки | `POST {token, id, action:"append", sheet?, values:[[...]]}` |
 | Новый лист | `POST {token, id, action:"createSheet", name}` |
 | Новая таблица | `POST {token, action:"createSpreadsheet", title}` |
+| Оформление | `POST {token, id, action:"format", sheet?, formats, widths, frozenRows, frozenColumns}` |
 
 `sheet` необязателен — по умолчанию первый лист. Ответ всегда JSON,
 ошибки — `{"error": "..."}`.
+
+### format
+
+```json
+{
+  "formats": [
+    {"range": "A1:Y1", "bold": true, "background": "#263238", "color": "#ffffff"},
+    {"range": "B2:Y10", "numberFormat": "#,##0"}
+  ],
+  "widths": [{"column": 1, "width": 330}],
+  "frozenColumns": 1
+}
+```
+
+Поля `formats[]`: `range`, `bold`, `background`, `color`, `numberFormat`,
+`fontSize`, `horizontalAlignment`, `wrap`. Округление делается через
+`numberFormat` (`#,##0` — целые рубли), значения остаются точными.
 
 ## Python-клиент
 
@@ -52,6 +70,9 @@ python gsheets.py create-spreadsheet "Название таблицы"
 {"url": "https://script.google.com/macros/s/.../exec", "token": "..."}
 ```
 
+Для `format` и других действий удобно импортировать модуль:
+`gsheets._post({"id": ..., "action": "format", ...})`.
+
 ## Особенности
 
 - POST к `/exec` возвращает 302 на `script.googleusercontent.com`: тело POST
@@ -59,5 +80,8 @@ python gsheets.py create-spreadsheet "Название таблицы"
   редиректу вручную. Голый curl: сначала POST без `-L`, затем GET по `Location`.
 - Кириллицу в JSON передавать только в UTF-8; curl из консоли Windows портит
   кодировку — для записей используйте клиент.
-- Мост работает только со значениями. Форматирование ячеек не поддерживается.
+- `setValues` требует прямоугольный массив: дополняйте строки `""` до ширины
+  диапазона.
+- Формулы передавать строками `=...` в `values` — Sheets их вычисляет.
+  Локаль ru_RU: дроби в формулах с запятой (`*0,8`), разделитель аргументов `;`.
 - Лимиты — стандартные квоты Apps Script (для ручной работы и отчётов хватает).

@@ -8,6 +8,7 @@
  * POST {token, id, sheet, range, values:[[...]]}
  * POST {token, action:"createSpreadsheet", title}
  * POST {token, id, action:"append", sheet, values:[[...]]}
+ * POST {token, id, action:"format", sheet, formats, widths, frozenRows, frozenColumns}
  */
 const TOKEN = 'REPLACE_WITH_YOUR_OWN_RANDOM_TOKEN';
 
@@ -53,6 +54,24 @@ function doPost(e) {
       if (!sh) return ok({ error: 'sheet not found: ' + body.sheet });
       (body.values || []).forEach(row => sh.appendRow(row));
       return ok({ appended: (body.values || []).length });
+    }
+    if (body.action === 'format') {
+      const sh = body.sheet ? ss.getSheetByName(body.sheet) : ss.getSheets()[0];
+      if (!sh) return ok({ error: 'sheet not found: ' + body.sheet });
+      (body.formats || []).forEach(f => {
+        const r = sh.getRange(f.range);
+        if (f.bold !== undefined) r.setFontWeight(f.bold ? 'bold' : 'normal');
+        if (f.background) r.setBackground(f.background);
+        if (f.color) r.setFontColor(f.color);
+        if (f.numberFormat) r.setNumberFormat(f.numberFormat);
+        if (f.fontSize) r.setFontSize(f.fontSize);
+        if (f.horizontalAlignment) r.setHorizontalAlignment(f.horizontalAlignment);
+        if (f.wrap !== undefined) r.setWrap(f.wrap);
+      });
+      (body.widths || []).forEach(w => sh.setColumnWidth(w.column, w.width));
+      if (body.frozenRows !== undefined) sh.setFrozenRows(body.frozenRows);
+      if (body.frozenColumns !== undefined) sh.setFrozenColumns(body.frozenColumns);
+      return ok({ formatted: true, sheet: sh.getName() });
     }
     const sh = body.sheet ? ss.getSheetByName(body.sheet) : ss.getSheets()[0];
     if (!sh) return ok({ error: 'sheet not found: ' + body.sheet });
